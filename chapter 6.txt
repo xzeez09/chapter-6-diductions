@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>                      
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Chapter VI-A Deduction Explorer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Fresh Blues & Greens -->
+    <!-- Application Structure Plan: The application is designed as an interactive "Deduction Explorer" dashboard, moving away from the static list format of the source report. This structure was chosen to enhance user engagement and understanding by allowing non-linear exploration. Key features include category-based filtering (Investments, Health, etc.), interactive cards that reveal details on click, and a "What If" calculator for specific sections like 80GG. This user-centric design helps users quickly find relevant information and apply it to their own scenarios, which is more effective for learning than a simple text document. -->
+    <!-- Visualization & Content Choices: 
+        - All Sections -> Goal: Organize/Explore -> Method: Interactive HTML/CSS cards in a filterable grid. Interaction: Users click filters (e.g., "Health") to see relevant cards (80D, 80DD, etc.). Justification: Improves navigation and reduces cognitive load compared to a long, scrolling list.
+        - Key Limits -> Goal: Compare -> Method: Chart.js Bar Chart. Interaction: Bars highlight when a category is filtered. Justification: Provides an immediate visual comparison of the relative importance of major deduction sections.
+        - Sec 80GG -> Goal: Apply Knowledge -> Method: Interactive calculator. Interaction: User inputs income/rent, JS calculates the deduction. Justification: Turns theoretical rules into a practical, hands-on tool.
+        - Sec 80D -> Goal: Inform/Apply -> Method: Interactive toggles within a card. Interaction: User selects their family/age status to see the applicable limit. Justification: Simplifies the complex, multi-part limit into a simple, personalized output.
+        - "Test Your Knowledge" Section -> Goal: Assess Understanding -> Method: Interactive MCQ cards. Interaction: User clicks an option, feedback (correct/incorrect) and rationale are displayed. Justification: Provides a self-assessment opportunity, reinforcing learning from the explorer sections.
+        - CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. All visuals are HTML/CSS or Chart.js Canvas.
+    -->
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .chart-container { position: relative; width: 100%; max-width: 600px; margin-left: auto; margin-right: auto; height: 350px; max-height: 400px; }
+        @media (max-width: 768px) { .chart-container { height: 300px; max-height: 350px; } }
+        .card { transition: all 0.3s ease-in-out; }
+        .card-back { transform: rotateY(180deg); backface-visibility: hidden; }
+        .card-front { backface-visibility: hidden; }
+        .card.flipped .card-inner { transform: rotateY(180deg); }
+        .card-inner { transition: transform 0.6s; transform-style: preserve-3d; }
+        .quiz-option { cursor: pointer; transition: all 0.2s ease; }
+        .quiz-option.correct { background-color: #d1fae5; border-color: #34d399; } /* Tailwind green-100, green-400 */
+        .quiz-option.incorrect { background-color: #fee2e2; border-color: #ef4444; } /* Tailwind red-100, red-500 */
+    </style>
+</head>
+<body class="bg-blue-50 text-gray-800">
+
+    <div class="container mx-auto px-4 py-8 md:py-12">
+
+        <header class="text-center mb-10 md:mb-12">
+            <h1 class="text-3xl md:text-5xl font-bold text-blue-900">Chapter VI-A Deduction Explorer</h1>
+            <p class="mt-3 text-lg text-blue-700 max-w-3xl mx-auto">An interactive guide to the major tax-saving deductions under the Indian Income Tax Act.</p>
+        </header>
+
+        <section id="section-visual-overview" class="mb-12">
+            <h2 class="text-2xl md:text-3xl font-bold text-center mb-4 text-blue-800">Comparing Major Deductions</h2>
+            <p class="text-center text-gray-700 max-w-2xl mx-auto mb-8">This chart shows the maximum limits for some of the most significant deductions, giving you a quick visual comparison. Use the filters below to explore each category in more detail.</p>
+             <div class="chart-container">
+                <canvas id="deductionLimitsChart"></canvas>
+            </div>
+        </section>
+
+        <div class="sticky top-0 z-10 bg-blue-50/80 backdrop-blur-sm py-4 mb-8 text-center">
+            <h3 class="font-semibold mb-3 text-blue-800">Filter by Category:</h3>
+            <div id="filter-container" class="flex flex-wrap justify-center gap-2 md:gap-3">
+                <button data-filter="all" class="filter-btn bg-blue-700 text-white font-semibold py-2 px-5 rounded-full shadow-md transition-all hover:bg-blue-800">All</button>
+                <button data-filter="investment" class="filter-btn bg-white hover:bg-emerald-50 text-emerald-700 font-semibold py-2 px-5 rounded-full shadow-sm border border-emerald-300 transition-all">💰 Investments</button>
+                <button data-filter="health" class="filter-btn bg-white hover:bg-emerald-50 text-emerald-700 font-semibold py-2 px-5 rounded-full shadow-sm border border-emerald-300 transition-all">❤️ Health</button>
+                <button data-filter="income" class="filter-btn bg-white hover:bg-emerald-50 text-emerald-700 font-semibold py-2 px-5 rounded-full shadow-sm border border-emerald-300 transition-all">📈 Income-Based</button>
+                <button data-filter="other" class="filter-btn bg-white hover:bg-emerald-50 text-emerald-700 font-semibold py-2 px-5 rounded-full shadow-sm border border-emerald-300 transition-all">🏠 Other</button>
+            </div>
+        </div>
+
+        <main id="deductions-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+            <!-- Deduction cards will be dynamically inserted here -->
+        </main>
+
+        <section id="section-quiz" class="mt-16">
+            <h2 class="text-2xl md:text-3xl font-bold text-center mb-4 text-blue-800">Test Your Knowledge</h2>
+            <p class="text-center text-gray-700 max-w-2xl mx-auto mb-8">Ready to check your understanding? Answer these questions based on the information provided in the explorer.</p>
+
+            <div id="quiz-container" class="space-y-8 max-w-2xl mx-auto">
+                <!-- Quiz questions will be dynamically inserted here -->
+            </div>
+        </section>
+
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const deductionsData = [
+            {
+                section: "80C",
+                title: "Investments & Expenses",
+                category: "investment",
+                limit: "₹1,50,000",
+                summary: "Deduction for a variety of investments like PF, LIP, ELSS, FDs, and expenses like tuition fees.",
+                details: `
+                    <p class="font-semibold">Eligible Investments/Payments:</p>
+                    <ul class="list-disc list-inside space-y-1 mt-2 text-sm">
+                        <li>Life Insurance Premium (LIP)</li>
+                        <li>Provident Fund (PF/VPF) & Public Provident Fund (PPF)</li>
+                        <li>Equity Linked Savings Scheme (ELSS)</li>
+                        <li>5-Year Tax-Saving Fixed Deposits (FDs)</li>
+                        <li>National Savings Certificate (NSC)</li>
+                        <li>Principal repayment of housing loan</li>
+                        <li>Children's tuition fees (max 2 children)</li>
+                    </ul>
+                    <p class="text-xs mt-2 text-gray-600">The total deduction under 80C, 80CCC & 80CCD(1) cannot exceed ₹1,50,000.</p>
+                `
+            },
+            {
+                section: "80CCD(1B)",
+                title: "Additional NPS Contribution",
+                category: "investment",
+                limit: "₹50,000",
+                summary: "An additional deduction for voluntary contributions to the National Pension System (NPS).",
+                details: `
+                    <p>This deduction is <strong>over and above</strong> the ₹1,50,000 limit of Section 80C.</p>
+                    <p class="mt-2">It's a powerful tool for retirement planning that provides extra tax savings for contributions made specifically to your Tier 1 NPS account.</p>
+                `
+            },
+            {
+                section: "80D",
+                title: "Medical Insurance",
+                category: "health",
+                limit: "Up to ₹1,00,000",
+                summary: "Deduction for premiums paid for health insurance for self, family, and parents.",
+                details: `
+                    <p class="font-semibold mb-2">Determine your maximum deduction:</p>
+                    <div class="flex flex-col space-y-2 mt-2">
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="80d_status" value="normal" checked class="form-radio text-blue-600">
+                            <span class="ml-2 text-sm text-gray-700">Self/Family (Non-Senior Citizen)</span>
+                        </label>
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="80d_status" value="senior_self" class="form-radio text-blue-600">
+                            <span class="ml-2 text-sm text-gray-700">Self/Family (Senior Citizen)</span>
+                        </label>
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="80d_status" value="parents_normal" class="form-radio text-blue-600">
+                            <span class="ml-2 text-sm text-gray-700">Parents (Non-Senior Citizen)</span>
+                        </label>
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="80d_status" value="parents_senior" class="form-radio text-blue-600">
+                            <span class="ml-2 text-sm text-gray-700">Parents (Senior Citizen)</span>
+                        </label>
+                    </div>
+                    <p id="80d_limit_display" class="mt-3 font-bold text-md text-emerald-700">Max Deduction: ₹25,000</p>
+                    <p class="text-xs mt-2 text-gray-600">Includes ₹5,000 for preventive health check-ups. Premium must be paid in non-cash mode.</p>
+                `
+            },
+            {
+                section: "80DD",
+                title: "Dependent with Disability",
+                category: "health",
+                limit: "Up to ₹1,25,000",
+                summary: "Fixed deduction for medical expenses of a dependent with a disability.",
+                details: `
+                    <p>This is a fixed deduction, not based on actual expenses.</p>
+                    <ul class="list-disc list-inside space-y-1 mt-2 text-sm">
+                        <li><strong>Normal Disability (40%-80%):</strong> Flat ₹75,000 deduction.</li>
+                        <li><strong>Severe Disability (80%+):</strong> Flat ₹1,25,000 deduction.</li>
+                    </ul>
+                    <p class="text-xs mt-2 text-gray-600">Requires a certificate from a prescribed medical authority.</p>
+                `
+            },
+             {
+                section: "80U",
+                title: "Self with Disability",
+                category: "health",
+                limit: "Up to ₹1,25,000",
+                summary: "Fixed deduction for a resident individual certified to have a disability.",
+                details: `
+                    <p>This is a fixed deduction available to the taxpayer themselves, not for a dependent.</p>
+                    <ul class="list-disc list-inside space-y-1 mt-2 text-sm">
+                        <li><strong>Normal Disability (40%-80%):</strong> Flat ₹75,000 deduction.</li>
+                        <li><strong>Severe Disability (80%+):</strong> Flat ₹1,25,000 deduction.</li>
+                    </ul>
+                     <p class="text-xs mt-2 text-gray-600">Similar to 80DD, but for the individual taxpayer. Requires a medical certificate.</p>
+                `
+            },
+            {
+                section: "80E",
+                title: "Interest on Education Loan",
+                category: "other",
+                limit: "No Limit",
+                summary: "Deduction for the full interest amount paid on a loan for higher education.",
+                details: `
+                    <p>The deduction is for interest paid, not the principal amount.</p>
+                     <ul class="list-disc list-inside space-y-1 mt-2 text-sm">
+                        <li>Loan can be for self, spouse, or children.</li>
+                        <li>No upper limit on the interest amount.</li>
+                        <li>Available for up to 8 years or until the interest is fully paid, whichever is earlier.</li>
+                    </ul>
+                `
+            },
+            {
+                section: "80GG",
+                title: "House Rent Paid (No HRA)",
+                category: "other",
+                limit: "Min of 3 Conditions",
+                summary: "For individuals who pay rent but do not receive House Rent Allowance (HRA) from their employer.",
+                details: `
+                    <p class="font-semibold mb-2">Calculate your 80GG deduction:</p>
+                    <div class="space-y-2 text-sm">
+                        <div>
+                            <label for="adjustedIncome" class="block text-gray-700">Adjusted Total Income (₹):</label>
+                            <input type="number" id="adjustedIncome" class="w-full p-2 border border-gray-300 rounded-md mt-1" value="500000">
+                        </div>
+                        <div>
+                            <label for="actualRent" class="block text-gray-700">Actual Rent Paid (₹/month):</label>
+                            <input type="number" id="actualRent" class="w-full p-2 border border-gray-300 rounded-md mt-1" value="10000">
+                        </div>
+                        <button id="calculate80GG" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">Calculate</button>
+                        <p id="80gg_result" class="mt-3 font-bold text-md text-emerald-700">Calculated Deduction: ₹0</p>
+                    </div>
+                    <p class="text-xs mt-2 text-gray-600">You or your family should not own a house at the place of employment.</p>
+                `
+            },
+            {
+                section: "80TTA",
+                title: "Savings Account Interest",
+                category: "income",
+                limit: "₹10,000",
+                summary: "Deduction on interest income from savings accounts with banks, co-operative societies, or post offices.",
+                details: `
+                    <p>Available to Individuals (other than senior citizens) and HUFs.</p>
+                    <p class="mt-2">This deduction is <strong>not applicable</strong> to interest earned from Fixed Deposits (FDs) or Recurring Deposits (RDs).</p>
+                    <p class="text-xs mt-2 text-gray-600">Senior citizens should claim the higher deduction under Sec 80TTB.</p>
+                `
+            },
+             {
+                section: "80TTB",
+                title: "Interest for Senior Citizens",
+                category: "income",
+                limit: "₹50,000",
+                summary: "Deduction on interest income from deposits for senior citizens (age 60+).",
+                details: `
+                    <p>This is a special benefit for senior citizens and covers interest from:</p>
+                    <ul class="list-disc list-inside space-y-1 mt-2 text-sm">
+                        <li>Savings Accounts</li>
+                        <li>Fixed Deposits (FDs)</li>
+                        <li>Recurring Deposits (RDs)</li>
+                    </ul>
+                    <p class="text-xs mt-2 text-gray-600">If a senior citizen claims this, they cannot claim the ₹10,000 deduction under 80TTA.</p>
+                `
+            },
+            {
+                section: "80G",
+                title: "Donations",
+                category: "other",
+                limit: "Varies",
+                summary: "Deduction for donations made to specified charitable institutions and funds.",
+                details: `
+                    <p>The deduction amount depends on the recipient fund.</p>
+                     <ul class="list-disc list-inside space-y-1 mt-2 text-sm">
+                        <li><strong>100% Deduction without limit:</strong> e.g., PM National Relief Fund, National Defence Fund.</li>
+                        <li><strong>50% Deduction without limit:</strong> e.g., PM Drought Relief Fund.</li>
+                        <li><strong>100% or 50% with limit:</strong> For other approved local charities and institutions.</li>
+                    </ul>
+                    <p class="text-xs mt-2 text-gray-600">Donations in cash above ₹2,000 are not eligible for deduction.</p>
+                `
+            }
+        ];
+
+        const quizQuestions = [
+            {
+                question: "What is the maximum combined deduction limit under Section 80C, 80CCC, and 80CCD(1)?",
+                options: [
+                    { text: "₹1,00,000", isCorrect: false, rationale: "This limit is lower than the actual combined maximum allowed under these sections." },
+                    { text: "₹1,50,000", isCorrect: true, rationale: "This is the aggregate maximum deduction allowed for investments and contributions falling under these three sections." },
+                    { text: "₹2,00,000", isCorrect: false, rationale: "While some deductions can exceed ₹1.5 lakh, this specific combined limit is fixed at ₹1.5 lakh." },
+                    { text: "No limit", isCorrect: false, rationale: "These sections have a clearly defined upper limit to the deduction that can be claimed." }
+                ]
+            },
+            {
+                question: "Which of the following expenses is NOT eligible for deduction under Section 80C?",
+                options: [
+                    { text: "Children's tuition fees", isCorrect: false, rationale: "Tuition fees for full-time education of up to two children are eligible under 80C." },
+                    { text: "Principal repayment of housing loan", isCorrect: false, rationale: "The principal component of a housing loan repayment qualifies for deduction under 80C." },
+                    { text: "Interest paid on education loan", isCorrect: true, rationale: "Interest on education loans is deductible under Section 80E, not 80C." },
+                    { text: "Contribution to Public Provident Fund (PPF)", isCorrect: false, rationale: "Contributions to PPF are a common and eligible investment under Section 80C." }
+                ]
+            },
+            {
+                question: "For a senior citizen (aged 60 or more), what is the maximum deduction allowed for interest income from bank deposits under Section 80TTB?",
+                options: [
+                    { text: "₹10,000", isCorrect: false, rationale: "This limit applies to interest from savings accounts for non-senior citizens under Section 80TTA." },
+                    { text: "₹25,000", isCorrect: false, rationale: "This amount is not a specific limit for interest income for senior citizens under 80TTB." },
+                    { text: "₹50,000", isCorrect: true, rationale: "Senior citizens can claim a deduction of up to ₹50,000 on interest from savings, fixed, and recurring deposits under Section 80TTB." },
+                    { text: "No limit", isCorrect: false, rationale: "Section 80TTB has a clear upper limit for the deduction on interest income for senior citizens." }
+                ]
+            }
+        ];
+
+
+        const grid = document.getElementById('deductions-grid');
+        const filterBtns = document.querySelectorAll('.filter-btn');
+        const quizContainer = document.getElementById('quiz-container');
+
+        const renderCards = (filter = 'all') => {
+            grid.innerHTML = '';
+            const filteredData = filter === 'all' 
+                ? deductionsData 
+                : deductionsData.filter(d => d.category === filter);
+
+            filteredData.forEach(deduction => {
+                const card = document.createElement('div');
+                card.className = `card bg-white p-6 rounded-xl shadow-md border border-blue-200 hover:shadow-lg hover:-translate-y-1 perspective-1000`;
+                card.dataset.category = deduction.category;
+                
+                card.innerHTML = `
+                    <div class="card-inner relative w-full h-full">
+                        <div class="card-front absolute w-full h-full flex flex-col justify-between">
+                            <div>
+                                <div class="flex justify-between items-start">
+                                    <span class="font-bold text-2xl text-blue-700">${deduction.section}</span>
+                                    <span class="text-right font-bold text-lg text-gray-800">${deduction.limit}</span>
+                                </div>
+                                <h3 class="font-semibold text-xl mt-2 text-blue-800">${deduction.title}</h3>
+                                <p class="text-sm text-gray-700 mt-2">${deduction.summary}</p>
+                            </div>
+                            <button class="details-btn mt-4 text-sm font-semibold text-emerald-600 hover:text-emerald-800 self-start">View Details →</button>
+                        </div>
+                        <div class="card-back absolute w-full h-full bg-white p-6 rounded-xl border border-blue-200 flex flex-col justify-between">
+                            <div class="text-sm text-gray-700">${deduction.details}</div>
+                            <button class="back-btn mt-4 text-sm font-semibold text-emerald-600 hover:text-emerald-800 self-start">← Back</button>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+            
+            grid.querySelectorAll('.details-btn').forEach(btn => btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                btn.closest('.card').classList.add('flipped');
+                // Initialize specific interactive elements after card flips
+                const cardElement = btn.closest('.card');
+                if (cardElement.querySelector('#calculate80GG')) {
+                    setup80GGCalculator(cardElement);
+                }
+                if (cardElement.querySelector('input[name="80d_status"]')) {
+                    setup80DToggles(cardElement);
+                }
+            }));
+            grid.querySelectorAll('.back-btn').forEach(btn => btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                btn.closest('.card').classList.remove('flipped');
+            }));
+
+        };
+
+        filterBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                filterBtns.forEach(b => {
+                    if (b.dataset.filter !== btn.dataset.filter) {
+                        b.classList.replace('bg-blue-700', 'bg-white');
+                        b.classList.replace('text-white', 'text-emerald-700');
+                        b.classList.add('border-emerald-300');
+                    }
+                });
+                btn.classList.replace('bg-white', 'bg-blue-700');
+                btn.classList.replace('text-emerald-700', 'text-white');
+                btn.classList.remove('border-emerald-300');
+                renderCards(btn.dataset.filter);
+            });
+        });
+
+        // Initial render
+        renderCards();
+
+        // Chart.js: Deduction Limits Chart
+        const ctx = document.getElementById('deductionLimitsChart').getContext('2d');
+        const chartData = {
+            labels: ['80C Bucket', '80CCD(1B) NPS', '80D (Family+Parents)', '80DD/80U (Severe)', '80TTB (Seniors)'],
+            datasets: [{
+                label: 'Max Deduction (₹)',
+                data: [150000, 50000, 100000, 125000, 50000],
+                backgroundColor: [
+                    'rgba(29, 78, 216, 0.8)',
+                    'rgba(16, 185, 129, 0.8)',
+                    'rgba(234, 88, 12, 0.8)',
+                    'rgba(239, 68, 68, 0.8)',
+                    'rgba(6, 182, 212, 0.8)'
+                ],
+                borderColor: [
+                    'rgba(29, 78, 216, 1)',
+                    'rgba(16, 185, 129, 1)',
+                    'rgba(234, 88, 12, 1)',
+                    'rgba(239, 68, 68, 1)',
+                    'rgba(6, 182, 212, 1)'
+                ],
+                borderWidth: 1
+            }]
+        };
+        new Chart(ctx, {
+            type: 'bar',
+            data: chartData,
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value, index, values) {
+                                return '₹' + (value / 1000) + 'k';
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                         callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.x !== null) {
+                                    label += new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(context.parsed.x);
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Quiz rendering and logic
+        quizQuestions.forEach((q, qIndex) => {
+            const questionDiv = document.createElement('div');
+            questionDiv.className = 'bg-white p-6 rounded-xl shadow-md border border-blue-200';
+            questionDiv.innerHTML = `
+                <p class="font-semibold text-lg text-blue-800 mb-4">Q${qIndex + 1}: ${q.question}</p>
+                <div class="options-container space-y-3"></div>
+                <div class="feedback-container mt-4 text-sm font-medium"></div>
+            `;
+            const optionsContainer = questionDiv.querySelector('.options-container');
+            const feedbackContainer = questionDiv.querySelector('.feedback-container');
+
+            q.options.forEach((option, optIndex) => {
+                const optionBtn = document.createElement('button');
+                optionBtn.className = 'quiz-option w-full text-left p-3 border border-gray-300 rounded-lg hover:bg-blue-50 text-gray-700';
+                optionBtn.textContent = option.text;
+                optionBtn.addEventListener('click', () => {
+                    // Disable all options for this question after selection
+                    optionsContainer.querySelectorAll('.quiz-option').forEach(btn => btn.disabled = true);
+
+                    if (option.isCorrect) {
+                        optionBtn.classList.add('correct');
+                        feedbackContainer.innerHTML = `<span class="text-emerald-700">✅ Correct!</span> ${option.rationale}`;
+                    } else {
+                        optionBtn.classList.add('incorrect');
+                        feedbackContainer.innerHTML = `<span class="text-red-700">❌ Incorrect.</span> ${option.rationale}`;
+                        // Highlight the correct answer
+                        const correctOptionBtn = Array.from(optionsContainer.querySelectorAll('.quiz-option')).find(btn => {
+                            return q.options.find(o => o.isCorrect && o.text === btn.textContent);
+                        });
+                        if (correctOptionBtn) {
+                            correctOptionBtn.classList.add('correct');
+                        }
+                    }
+                });
+                optionsContainer.appendChild(optionBtn);
+            });
+            quizContainer.appendChild(questionDiv);
+        });
+
+        // 80GG Calculator Logic
+        function setup80GGCalculator(cardElement) {
+            const adjustedIncomeInput = cardElement.querySelector('#adjustedIncome');
+            const actualRentInput = cardElement.querySelector('#actualRent');
+            const calculateBtn = cardElement.querySelector('#calculate80GG');
+            const resultDisplay = cardElement.querySelector('#80gg_result');
+
+            calculateBtn.addEventListener('click', () => {
+                const adjustedIncome = parseFloat(adjustedIncomeInput.value) || 0;
+                const actualRentPerMonth = parseFloat(actualRentInput.value) || 0;
+                const actualRentAnnually = actualRentPerMonth * 12;
+
+                const condition1 = 60000; // ₹5,000 per month
+                const condition2 = 0.25 * adjustedIncome; // 25% of Adjusted Total Income
+                const condition3 = actualRentAnnually - (0.10 * adjustedIncome); // Actual Rent Paid - 10% of Adjusted Total Income
+
+                const deduction = Math.max(0, Math.min(condition1, condition2, condition3));
+                resultDisplay.textContent = `Calculated Deduction: ₹${new Intl.NumberFormat('en-IN').format(deduction)}`;
+            });
+        }
+
+        // 80D Toggles Logic
+        function setup80DToggles(cardElement) {
+            const radioButtons = cardElement.querySelectorAll('input[name="80d_status"]');
+            const limitDisplay = cardElement.querySelector('#80d_limit_display');
+
+            const update80DLimit = () => {
+                const selectedValue = cardElement.querySelector('input[name="80d_status"]:checked').value;
+                let limit = 0;
+                switch(selectedValue) {
+                    case 'normal':
+                        limit = 25000;
+                        break;
+                    case 'senior_self':
+                        limit = 50000;
+                        break;
+                    case 'parents_normal':
+                        limit = 25000;
+                        break;
+                    case 'parents_senior':
+                        limit = 50000;
+                        break;
+                }
+                limitDisplay.textContent = `Max Deduction: ₹${new Intl.NumberFormat('en-IN').format(limit)}`;
+            };
+
+            radioButtons.forEach(radio => {
+                radio.addEventListener('change', update80DLimit);
+            });
+            // Initial update based on default checked radio
+            update80DLimit();
+        }
+
+    });
+    </script>
+</body>
+</html>
